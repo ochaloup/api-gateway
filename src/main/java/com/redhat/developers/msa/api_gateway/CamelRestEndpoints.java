@@ -16,14 +16,23 @@
  */
 package com.redhat.developers.msa.api_gateway;
 
+import java.net.URL;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
+import org.apache.camel.LoggingLevel;
+import org.apache.camel.Route;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.model.rest.RestBindingMode;
 import org.apache.camel.util.toolbox.AggregationStrategies;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
+import io.narayana.lra.client.LRAClient;
+import io.narayana.lra.client.LRAClientAPI;
 
 @Component
 public class CamelRestEndpoints extends RouteBuilder {
@@ -31,9 +40,18 @@ public class CamelRestEndpoints extends RouteBuilder {
     @Value("${service.host}")
     private String serviceHost;
 
+    @Autowired
+    private LRAClientAPI lraClient;
+
     @Override
     public void configure() throws Exception {
-
+        // System.out.println("OK, lra client is ready to go: " + lraClient + " with current lra: " + lraClient.getCurrent());
+        // String methodName = new Object(){}.getClass().getEnclosingMethod().getName();
+        // URL lraUrlId = lraClient.startLRA(null, CamelRestEndpoints.class.getName() + "#" + methodName, 0L, TimeUnit.SECONDS);
+        // String recoveryPath = lraClient.joinLRA(lraUrlId, 0L, getBaseUri(), null);
+        // System.out.println("Starting LRA: " + lraUrlId + " when joining with baseUri: " + getBaseUri()
+        //    + " on enlistment gets recovery path " + recoveryPath);
+        
         /*
          * Common rest configuration
          */
@@ -61,6 +79,12 @@ public class CamelRestEndpoints extends RouteBuilder {
                 .apiDocs(true)
                 .responseMessage().code(200).message("OK").endResponseMessage()
                 .route()
+                    .process(e -> {
+                    	String methodName = new Object(){}.getClass().getEnclosingMethod().getName();
+                        URL lraUrlId = lraClient.startLRA(null, CamelRestEndpoints.class.getName() + "#" + methodName, 0L, TimeUnit.SECONDS);
+                        e.getIn().setHeader(LRAClient.LRA_HTTP_HEADER, lraUrlId.toString());
+                        e.setProperty(LRAClient.LRA_HTTP_HEADER, lraUrlId);
+                    })
                     .multicast(AggregationStrategies.flexible().accumulateInCollection(LinkedList.class))
                     .parallelProcessing()
                         .to("direct:aloha")
@@ -70,7 +94,16 @@ public class CamelRestEndpoints extends RouteBuilder {
                     .end()
                     .transform().body(List.class, list -> list)
                     .setHeader("Access-Control-Allow-Credentials", constant("true"))
-                    .setHeader("Access-Control-Allow-Origin", header("Origin"));
+                    .setHeader("Access-Control-Allow-Origin", header("Origin"))
+                    .process(e -> {
+                    	String compatedBody = e.getIn().getBody().toString();
+                    	URL lraId = (URL) e.getProperty(LRAClient.LRA_HTTP_HEADER);
+                    	if(compatedBody.contains("fallback") || compatedBody.contains("failed")) {
+                    		lraClient.cancelLRA(lraId);
+                    	} else {
+                    		lraClient.closeLRA(lraId);
+                    	}
+                    });
 
     }
 }

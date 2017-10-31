@@ -18,10 +18,20 @@ package com.redhat.developers.msa.api_gateway;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public class CamelServiceRoutes extends RouteBuilder {
+
+	@Autowired
+	private EnvResolver env;
+
+	private String getHostAndPort(String serviceName) {
+		String host = env.get(serviceName + ".host", serviceName);
+		int port = env.get(serviceName + ".port", 8080);
+		return String.format("%s:%d", host, port);
+	}
 
     @Override
     public void configure() throws Exception {
@@ -38,8 +48,8 @@ public class CamelServiceRoutes extends RouteBuilder {
                 .hystrix()
                     .hystrixConfiguration().executionTimeoutInMilliseconds(1000).circuitBreakerRequestVolumeThreshold(5).end()
                     .id("aloha")
-                    .groupKey("http://aloha:8080/")
-                    .to("http4:aloha:8080/api/aloha?bridgeEndpoint=true&connectionClose=true")
+                    .groupKey("http://" + getHostAndPort("aloha") + "/")
+                    .to("http4:" + getHostAndPort("aloha") + "/api/aloha?bridgeEndpoint=true&connectionClose=true")
                     .convertBodyTo(String.class)
                 .onFallback()
                     .transform().constant("Aloha response (fallback)")
@@ -57,8 +67,8 @@ public class CamelServiceRoutes extends RouteBuilder {
                 .hystrix()
                     .hystrixConfiguration().executionTimeoutInMilliseconds(1000).circuitBreakerRequestVolumeThreshold(5).end()
                     .id("hola")
-                    .groupKey("http://hola:8080/")
-                    .to("http4:hola:8080/api/hola?bridgeEndpoint=true&connectionClose=true")
+                    .groupKey("http://" + getHostAndPort("hola") + "/")
+                    .to("http4:" + getHostAndPort("hola") + "/api/hola?bridgeEndpoint=true&connectionClose=true")
                     .convertBodyTo(String.class)
                 .onFallback()
                     .transform().constant("Hola response (fallback)")
@@ -76,8 +86,8 @@ public class CamelServiceRoutes extends RouteBuilder {
                 .hystrix()
                     .hystrixConfiguration().executionTimeoutInMilliseconds(1000).circuitBreakerRequestVolumeThreshold(5).end()
                     .id("ola")
-                    .groupKey("http://ola:8080/")
-                    .to("http4:ola:8080/api/ola?bridgeEndpoint=true&connectionClose=true")
+                    .groupKey("http://" + getHostAndPort("ola") + "/")
+                    .to("http4:" + getHostAndPort("ola") + "/api/ola?bridgeEndpoint=true&connectionClose=true")
                     .convertBodyTo(String.class)
                 .onFallback()
                     .transform().constant("Ola response (fallback)")
@@ -95,8 +105,8 @@ public class CamelServiceRoutes extends RouteBuilder {
                 .hystrix()
                     .hystrixConfiguration().executionTimeoutInMilliseconds(1000).circuitBreakerRequestVolumeThreshold(5).end()
                     .id("bonjour")
-                    .groupKey("http://bonjour:8080/")
-                    .to("http4:bonjour:8080/api/bonjour?bridgeEndpoint=true&connectionClose=true")
+                    .groupKey("http://" + getHostAndPort("bonjour") + "/")
+                    .to("http4:" + getHostAndPort("bonjour") + "/api/bonjour?bridgeEndpoint=true&connectionClose=true")
                     .convertBodyTo(String.class)
                 .onFallback()
                     .transform().constant("Bonjour response (fallback)")

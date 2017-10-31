@@ -23,3 +23,15 @@ Deploy the application in Openshift
 2. Execute
 
 		mvn package fabric8:deploy
+
+
+Running with LRA
+----------------
+
+Starting api gateway on `8080` and letting it know where all services reside
+     
+     mvn clean package && java -Dbonjour.host=localhost -Dbonjour.port=8484 -Dhola.host=localhost -Dhola.port=8282 -Dola.host=localhost -Dola.port=8181 -Dlra.http.host=localhost -Dlra.http.port=8180 -jar target/api-gateway.jar
+
+To check the call on gateway
+     
+     curl -i -X GET http://localhost:8080/api/gateway

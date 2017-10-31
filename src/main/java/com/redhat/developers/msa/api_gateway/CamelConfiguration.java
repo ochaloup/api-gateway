@@ -16,10 +16,12 @@
  */
 package com.redhat.developers.msa.api_gateway;
 
+import java.net.URISyntaxException;
 import java.util.logging.Logger;
 
 import org.apache.camel.component.hystrix.metrics.servlet.HystrixEventStreamServlet;
 import org.apache.camel.component.servlet.CamelHttpTransportServlet;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,12 +34,17 @@ import com.uber.jaeger.samplers.ProbabilisticSampler;
 import com.uber.jaeger.senders.Sender;
 import com.uber.jaeger.senders.UdpSender;
 
+import io.narayana.lra.client.LRAClient;
+import io.narayana.lra.client.LRAClientAPI;
 import io.opentracing.NoopTracerFactory;
 import io.opentracing.Tracer;
 
 @Configuration
 public class CamelConfiguration {
     private static final Logger log = Logger.getLogger(CamelConfiguration.class.getName());
+
+    @Autowired
+    private EnvResolver env;
 
     /**
      * Bind the Camel servlet at the "/api" context path.
@@ -78,6 +85,23 @@ public class CamelConfiguration {
         return NoopTracerFactory.create();
     }
 
+    @Bean
+    public LRAClientAPI lraClient() {
+        try {
+            int port = env.get(LRAClient.CORRDINATOR_PORT_PROP, 8080);
+            String host = env.get(LRAClient.CORRDINATOR_HOST_PROP, "lra-coordinator");
+
+            System.out.println(">>>>>>>>>>>>>>>>> LRA coordinator to connect is at " + host + ":" + port);
+            return new LRAClient(host, port);
+        } catch (URISyntaxException urise) {
+            throw new IllegalStateException("Can't initalize a new LRA client", urise);
+        }
+    }
+
+    @Bean
+    public EnvResolver envResolver() {
+    	return new EnvResolver();
+    }
 
     private Tracer jaegerTracer(String url) {
         Sender sender = new UdpSender(url, 0, 0);
